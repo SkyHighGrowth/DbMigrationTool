@@ -53,31 +53,38 @@ public class CreateAlterSplitterApplication {
 
             String line = mainReader.readLine();
 
+
             while (line != null) {
+
+
                 if (isLineAMultiLineCommentStart(line)) {
                     currentlyInComment = true;
-                    if(!isLineAMultiLineCommentEnd(line))
+                    if(isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line))
                     {
                         removeLine(line,originalFile);
                     }
                 }
 
-                if (!currentlyInComment && !line.trim().startsWith("//")) {
-                    if (line.equals("-- SQLINES LICENSE FOR EVALUATION USE ONLY"))
-                    {
-                        removeLine(line,originalFile);
-                    }
-                    else
-                    {
-                        fullScriptNoComments.append(line);
-                        fullScriptNoComments.append(ls);
-                    }
+                if (!currentlyInComment && !isLineAComment(line)) {
+                        if(line.equals("USE `anon`;"))
+                        {
+                            removeLine(line,originalFile);
+                        }
+                        else {
+                            fullScriptNoComments.append(line);
+                            fullScriptNoComments.append(ls);
+                        }
 
                 }
-                else if(currentlyInComment && (!isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line)))
+                else if(!currentlyInComment && isLineAComment(line))
                 {
                     removeLine(line,originalFile);
                 }
+                else if(currentlyInComment && (!isLineAComment(line) && !isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line)))
+                {
+                    removeLine(line,originalFile);
+                }
+
 
                 if (isLineAMultiLineCommentEnd(line) && currentlyInComment) {
                     currentlyInComment = false;
@@ -93,8 +100,10 @@ public class CreateAlterSplitterApplication {
             BufferedReader alterScriptBufferedReader = new BufferedReader(inputString);
 
             BufferedWriter bufferedWriter=null;
+            boolean startOfAlter=false;
             while ((line = alterScriptBufferedReader.readLine()) != null) {
-                if (isLineStartOfAlter(line)) {
+                if (!startOfAlter && isLineStartOfAlter(line)) {
+                    startOfAlter=true;
                     File myObj = new File(MYSQL_FOLDER_PATH + newFileName);
                     if (myObj.createNewFile()) {
                         System.out.println("File created: " + myObj.getName());
@@ -104,6 +113,10 @@ public class CreateAlterSplitterApplication {
                     myObj.setWritable(true);
                     fw = new FileWriter(myObj);
                     bufferedWriter = new BufferedWriter(fw);
+                    bufferedWriter.write(line);
+                    bufferedWriter.write(ls);
+                    removeLine(line, originalFile);
+                } else if (startOfAlter) {
                     bufferedWriter.write(line);
                     bufferedWriter.write(ls);
                     removeLine(line, originalFile);
@@ -128,7 +141,7 @@ public class CreateAlterSplitterApplication {
     }
 
     private static boolean isLineAComment(String line) {
-        if (line.contains("//")) return true;
+        if (line.contains("--")) return true;
 
         return false;
     }
