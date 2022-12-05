@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -35,11 +36,8 @@ public class CreateAlterSplitterApplication {
 
     private static void writeToFileInDirectory(String newFileName, File originalFile) {
         FileReader fr;
-        FileWriter fw;
         try {
             fr = new FileReader(originalFile);
-
-
 
 
             String ls = System.getProperty("line.separator");
@@ -59,74 +57,80 @@ public class CreateAlterSplitterApplication {
 
                 if (isLineAMultiLineCommentStart(line)) {
                     currentlyInComment = true;
-                    if(isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line))
-                    {
-                        removeLine(line,originalFile);
+                    if (isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line)) {
+                        removeLine(line, originalFile);
                     }
                 }
 
                 if (!currentlyInComment && !isLineAComment(line)) {
-                        if(line.equals("USE `anon`;"))
-                        {
-                            removeLine(line,originalFile);
-                        }
-                        else {
-                            fullScriptNoComments.append(line);
-                            fullScriptNoComments.append(ls);
-                        }
+                    if (line.equals("USE `anon`;")) {
+                        removeLine(line, originalFile);
+                    } else {
+                        fullScriptNoComments.append(line);
+                        fullScriptNoComments.append(ls);
+                    }
 
-                }
-                else if(!currentlyInComment && isLineAComment(line))
-                {
-                    removeLine(line,originalFile);
-                }
-                else if(currentlyInComment && (!isLineAComment(line) && !isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line)))
-                {
-                    removeLine(line,originalFile);
+                } else if (!currentlyInComment && isLineAComment(line)) {
+                    removeLine(line, originalFile);
+                } else if (currentlyInComment && (!isLineAComment(line) && !isLineAMultiLineCommentStart(line) && !isLineAMultiLineCommentEnd(line))) {
+                    removeLine(line, originalFile);
                 }
 
 
                 if (isLineAMultiLineCommentEnd(line) && currentlyInComment) {
                     currentlyInComment = false;
-                    removeLine(line,originalFile);
+                    removeLine(line, originalFile);
                 }
 
                 line = mainReader.readLine();
             }
-
-
             String alterScriptString = fullScriptNoComments.substring(0);
+
+
             Reader inputString = new StringReader(alterScriptString);
             BufferedReader alterScriptBufferedReader = new BufferedReader(inputString);
+            FileWriter alterWriter;
 
-            BufferedWriter bufferedWriter=null;
-            boolean startOfAlter=false;
+            if (alterScriptString.contains("ALTER TABLE")) {
+                File myObj = new File(MYSQL_FOLDER_PATH + newFileName);
+                if (myObj.createNewFile()) {
+                    System.out.println("File created: " + myObj.getName());
+                } else {
+                    System.out.println("File already exists.");
+                }
+                alterWriter = new FileWriter(myObj);
+            } else {
+                mainReader.close();
+                alterScriptBufferedReader.close();
+                return;
+            }
+
+
+            BufferedWriter bufferedAlterWriter = new BufferedWriter(alterWriter);
+            BufferedWriter bufferedOriginalWriter = new BufferedWriter(new FileWriter(originalFile));
+
+            boolean inAlter = false;
             while ((line = alterScriptBufferedReader.readLine()) != null) {
-                if (!startOfAlter && isLineStartOfAlter(line)) {
-                    startOfAlter=true;
-                    File myObj = new File(MYSQL_FOLDER_PATH + newFileName);
-                    if (myObj.createNewFile()) {
-                        System.out.println("File created: " + myObj.getName());
-                    } else {
-                        System.out.println("File already exists.");
-                    }
-                    myObj.setWritable(true);
-                    fw = new FileWriter(myObj);
-                    bufferedWriter = new BufferedWriter(fw);
-                    bufferedWriter.write(line);
-                    bufferedWriter.write(ls);
+                if (!inAlter && isLineStartOfAlter(line)) {
+                    inAlter = true;
+                    bufferedAlterWriter.write(line);
+                    bufferedAlterWriter.write(ls);
                     removeLine(line, originalFile);
-                } else if (startOfAlter) {
-                    bufferedWriter.write(line);
-                    bufferedWriter.write(ls);
-                    removeLine(line, originalFile);
+                } else if (inAlter) {
+                    bufferedAlterWriter.write(line);
+                    bufferedAlterWriter.write(ls);
+
+                } else {
+                    bufferedOriginalWriter.write(line);
+                    bufferedOriginalWriter.write(ls);
                 }
             }
+
+            bufferedOriginalWriter.close();
+            bufferedAlterWriter.close();
             mainReader.close();
             alterScriptBufferedReader.close();
-            if(bufferedWriter!=null) {
-                bufferedWriter.close();
-            }
+
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -134,9 +138,7 @@ public class CreateAlterSplitterApplication {
     }
 
     private static void removeLine(String lineContent, File file) throws IOException {
-        List<String> out = Files.lines(file.toPath())
-                .filter(line -> !line.contains(lineContent))
-                .collect(Collectors.toList());
+        List<String> out = Files.lines(file.toPath()).filter(line -> !line.contains(lineContent)).collect(Collectors.toList());
         Files.write(file.toPath(), out, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
@@ -165,6 +167,7 @@ public class CreateAlterSplitterApplication {
         return false;
 
     }
+
 
 }
 
