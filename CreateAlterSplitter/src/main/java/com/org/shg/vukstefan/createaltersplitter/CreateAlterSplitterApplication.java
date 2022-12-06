@@ -28,8 +28,8 @@ public class CreateAlterSplitterApplication {
         File rootFile = new File(MYSQL_FOLDER_PATH);
         File[] files = rootFile.listFiles();
         for (File file : files) {
-            String newFileName = file.getName().replace("__create", "__alter").replaceAll("[0-9]", "");
-            writeToFileInDirectory(newFileName, file);
+            String newFileName = file.getName().replace("__create", "__alter");
+            writeToFileInDirectory(removeAllDigit(newFileName), file);
         }
 
     }
@@ -166,6 +166,34 @@ public class CreateAlterSplitterApplication {
 
         return false;
 
+    }
+
+    private static String removeAllDigit(String str)
+    {
+        // Converting the given string
+        // into a character array
+        char[] charArray = str.toCharArray();
+        String result = "";
+
+        boolean firstUnderscore=false;
+        // Traverse the character array
+        for (int i = 0; i < charArray.length; i++) {
+            if(charArray[i]=='_') {
+                firstUnderscore = true;
+            }
+
+            // Check if the specified character is not digit
+            // then add this character into result variable
+            if (!Character.isDigit(charArray[i])) {
+                result = result + charArray[i];
+            }
+            else if(firstUnderscore){
+                result=result+charArray[i];
+            }
+        }
+
+        // Return result
+        return result;
     }
 
 
